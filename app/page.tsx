@@ -55,10 +55,25 @@ export default function Home() {
     };
 
     return (
-        <main className="container mx-auto px-4 py-8">
-            <h1 className="text-2xl font-bold mb-6">Gestion des utilisateurs</h1>
-            <UserForm onAddUser={handleAddUser} />
-            <UserList users={users} onDeleteUser={handleDeleteUser} />
+        <main className="min-h-screen bg-gray-50">
+            <div className="container mx-auto px-4 pt-24 pb-8">
+                <div className="max-w-3xl mx-auto">
+                    <h1 className="text-3xl font-bold mb-8 text-gray-800">
+                        Gestion des utilisateurs
+                    </h1>
+                    
+                    <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+                        <h2 className="text-xl font-semibold mb-4 text-gray-700">
+                            Ajouter un utilisateur
+                        </h2>
+                        <UserForm onAddUser={handleAddUser} />
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <UserList users={users} onDeleteUser={handleDeleteUser} />
+                    </div>
+                </div>
+            </div>
         </main>
     );
 }
