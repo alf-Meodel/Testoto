@@ -2,8 +2,7 @@
 // components/Navbar.tsx
 import React from 'react';
 import Link from 'next/link';
-import { FaBars, FaUser } from 'react-icons/fa';
-import { FiLogIn } from 'react-icons/fi';
+import { FaBars } from 'react-icons/fa';
 
 interface NavProps {
     routes: { path: string, name: string }[];
