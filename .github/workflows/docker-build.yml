@@ -1,1 +1,87 @@
- 
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run linting
+      run: npm run lint
+
+    - name: Run tests
+      run: npm run test --if-present
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/my-nextjs-app:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/my-nextjs-app:${{ github.sha }}
+        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/my-nextjs-app:buildcache
+        cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/my-nextjs-app:buildcache,mode=max
+
+  deploy:
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Install SSH key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: unnecessary
+        if_key_exists: replace
+
+    - name: Adding Known Hosts
+      run: ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Deploy to VPS
+      run: |
+        ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} '
+          # Arrêter le conteneur existant
+          docker stop nextjs-app || true
+          docker rm nextjs-app || true
+          
+          # Supprimer l'ancienne image
+          docker image rm ${{ secrets.DOCKERHUB_USERNAME }}/my-nextjs-app:latest || true
+          
+          # Tirer la nouvelle image
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-nextjs-app:latest
+          
+          # Lancer le nouveau conteneur
+          docker run -d \
+            --name nextjs-app \
+            -p 3000:3000 \
+            --restart unless-stopped \
+            ${{ secrets.DOCKERHUB_USERNAME }}/my-nextjs-app:latest
+        ' 
